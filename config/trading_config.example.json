@@ -1,0 +1,69 @@
+{
+    "_comment": "Example trading configuration file - copy to trading_config.json and adjust as needed",
+    "_notice": "This is a safe, conservative template. Adjust values based on your risk tolerance.",
+    
+    "trading": {
+        "_comment_max_position_size": "Maximum portion of portfolio per position (0.1 = 10%)",
+        "max_position_size": 0.05,
+        
+        "_comment_risk_per_trade": "Maximum risk per trade as portfolio percentage (0.01 = 1%)",
+        "risk_per_trade": 0.01,
+        
+        "_comment_min_trade_amount": "Minimum trade amount in USD to avoid dust trades",
+        "min_trade_amount": 25.0,
+        
+        "_comment_supported_coins": "List of cryptocurrencies the system can trade",
+        "supported_coins": ["BTC", "ETH"],
+        
+        "_comment_trading_pairs": "Specific trading pairs for each supported coin",
+        "trading_pairs": ["BTC-USD", "ETH-USD"]
+    },
+    
+    "data_sources": {
+        "_comment_price_sources": "Data sources for price verification (multiple sources improve reliability)",
+        "price_sources": ["coingecko", "coinbase"],
+        
+        "_comment_sentiment_sources": "Sources for market sentiment analysis",
+        "sentiment_sources": ["newsapi"],
+        
+        "_comment_cache_duration": "How long to cache data in minutes to reduce API calls",
+        "cache_duration_minutes": 5
+    },
+    
+    "llm": {
+        "_comment_model": "LLM model for trading decisions (gpt-4 recommended for better accuracy)",
+        "model": "gpt-4",
+        
+        "_comment_max_tokens": "Maximum tokens for LLM responses",
+        "max_tokens": 1000,
+        
+        "_comment_temperature": "LLM creativity level (0.3-0.7 recommended for trading)",
+        "temperature": 0.5,
+        
+        "_comment_system_prompt": "Instructions for the AI trading advisor",
+        "system_prompt": "You are a conservative cryptocurrency trading advisor. Prioritize capital preservation over aggressive growth. Analyze market data, sentiment, and risk factors to make informed, low-risk trading decisions."
+    },
+    
+    "risk_management": {
+        "_comment_max_drawdown": "Maximum portfolio loss before system stops trading (0.10 = 10%)",
+        "max_drawdown": 0.10,
+        
+        "_comment_stop_loss_percentage": "Default stop loss percentage (0.03 = 3% loss)",
+        "stop_loss_percentage": 0.03,
+        
+        "_comment_take_profit_percentage": "Default take profit percentage (0.06 = 6% gain)",
+        "take_profit_percentage": 0.06,
+        
+        "_comment_position_sizing_method": "Method for calculating position sizes: 'fixed', 'percentage', or 'kelly'",
+        "position_sizing_method": "percentage"
+    },
+    
+    "_safety_notes": [
+        "ALWAYS test with sandbox/paper trading first",
+        "Start with small amounts you can afford to lose",
+        "Monitor the system closely during initial runs",
+        "Review and understand all trading decisions before going live",
+        "Keep emergency stop procedures ready",
+        "Regular backups of configuration and logs recommended"
+    ]
+}

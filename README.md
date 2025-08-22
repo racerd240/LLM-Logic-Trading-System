@@ -37,97 +37,122 @@ A sophisticated cryptocurrency trading system that combines Large Language Model
 ## Installation
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.10 or 3.11 (recommended)
 - pip package manager
+- Git
 
-### Setup
+### Quickstart Setup
 
-1. Clone the repository:
+⚠️ **Safety First**: Always start with sandbox mode and paper trading before risking real money.
+
+1. **Clone and setup environment**:
 ```bash
 git clone https://github.com/racerd240/LLM-Logic-Trading-System.git
 cd LLM-Logic-Trading-System
-```
 
-2. Install dependencies:
-```bash
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-3. Configure environment variables:
+2. **Configure environment**:
 ```bash
+# Copy environment template and edit with your API keys
 cp .env.example .env
-# Edit .env with your API keys and configuration
+nano .env  # or use your preferred editor
+```
+
+3. **Test the setup**:
+```bash
+# Test with demo mode (no API keys needed)
+python demo.py
+
+# Test with real APIs in safe analyze mode
+python main.py --mode analyze --symbols BTC ETH
 ```
 
 ### Required API Keys
 
-1. **OpenAI API Key** (for LLM analysis)
-   - Sign up at https://platform.openai.com/
+1. **OpenAI API Key** (Required)
+   - Sign up at [OpenAI Platform](https://platform.openai.com/)
    - Add your key to `.env` as `OPENAI_API_KEY`
 
-2. **Coinbase Pro API** (for trading)
-   - Create API credentials at https://pro.coinbase.com/
-   - Add credentials to `.env`:
-     - `COINBASE_API_KEY`
-     - `COINBASE_API_SECRET`
-     - `COINBASE_PASSPHRASE`
+2. **Coinbase Pro API** (Required for trading)
+   - Create API credentials at [Coinbase Pro](https://pro.coinbase.com/)
+   - Enable permissions: View ✅, Trade ✅, Transfer ❌
+   - Add to `.env`: `COINBASE_API_KEY`, `COINBASE_API_SECRET`, `COINBASE_PASSPHRASE`
+   - **Important**: Set `COINBASE_USE_SANDBOX=true` for testing
 
-3. **News API Key** (optional, for sentiment analysis)
-   - Get free key at https://newsapi.org/
+3. **News API Key** (Optional but recommended)
+   - Get free key at [NewsAPI.org](https://newsapi.org/)
    - Add to `.env` as `NEWS_API_KEY`
 
 ## Usage
 
-### Quick Start
+### 🚀 Quick Start (Safe Development Workflow)
 
-Run a single analysis cycle:
+1. **Start with demo mode** (no API keys required):
+```bash
+python demo.py
+```
+
+2. **Test with analyze mode** (read-only):
 ```bash
 python main.py --mode analyze --symbols BTC ETH
+```
+
+3. **Try dry-run mode** (simulated trading):
+```bash
+python main.py --mode test --symbols BTC ETH
+```
+
+4. **Sandbox trading** (fake money on real exchange):
+```bash
+# Ensure COINBASE_USE_SANDBOX=true in .env
+python main.py --mode continuous --symbols BTC ETH
+```
+
+5. **Live trading** (real money - use extreme caution):
+```bash
+# Set COINBASE_USE_SANDBOX=false in .env
+python main.py --mode continuous --symbols BTC ETH --execute
 ```
 
 ### Operating Modes
 
-#### 1. Analysis Mode (Default)
-Performs a single comprehensive analysis cycle:
+| Mode | Description | Safety Level | API Keys Required |
+|------|-------------|--------------|-------------------|
+| `demo` | Mock data demonstration | ✅ Safe | None |
+| `analyze` | Read-only market analysis | ✅ Safe | OpenAI, Coinbase (read-only) |
+| `test` | Dry-run with real data | ✅ Safe | OpenAI, Coinbase |
+| `continuous` | Live monitoring (sandbox) | ⚠️ Caution | All APIs |
+| `continuous --execute` | Live trading | ❌ High Risk | All APIs |
+
+### Safety Guidelines
+
+- **Always start with sandbox trading** (`COINBASE_USE_SANDBOX=true`)
+- **Use small amounts** you can afford to lose completely
+- **Monitor the system closely** during initial runs
+- **Understand the risks** of automated trading
+- **Have emergency stop procedures** ready
+- **Read the full documentation** in `docs/RUNBOOK.md`
+
+### Command Examples
+
 ```bash
-python main.py --mode analyze --symbols BTC ETH ADA
-```
+# Safe exploration and testing
+python demo.py                                    # Demo with mock data
+python main.py --mode analyze --symbols BTC ETH   # Read-only analysis
+python main.py --mode test                        # System validation
 
-#### 2. Continuous Trading Mode
-Runs continuous monitoring and trading:
-```bash
-python main.py --mode continuous --symbols BTC ETH --execute
-```
+# Sandbox trading (recommended before live)
+python main.py --mode continuous --symbols BTC    # Sandbox monitoring
+python main.py --mode continuous --symbols BTC ETH # Multiple coins
 
-**Note**: Remove `--execute` flag for dry-run mode (recommended for testing).
-
-#### 3. Test Mode
-Validates system components and connections:
-```bash
-python main.py --mode test
-```
-
-### Command Line Options
-
-- `--mode`: Operating mode (`analyze`, `continuous`, `test`)
-- `--symbols`: Cryptocurrency symbols to analyze (space-separated)
-- `--execute`: Enable actual trade execution (default: dry-run)
-- `--log-level`: Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
-
-### Examples
-
-Analyze Bitcoin and Ethereum:
-```bash
-python main.py --mode analyze --symbols BTC ETH
-```
-
-Run continuous trading in dry-run mode:
-```bash
-python main.py --mode continuous --symbols BTC ETH SOL
-```
-
-Execute live trades (use with caution):
-```bash
+# Live trading (use extreme caution)
 python main.py --mode continuous --symbols BTC --execute
 ```
 

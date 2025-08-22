@@ -1,54 +1,54 @@
 import json
-import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 from data_feeds.coinbase_portfolio import get_coinbase_portfolio
 from context.decision_context_builder import build_context
-from llm.decision_engine import query_llm
 
-def _load_env():
-    try:
-        from dotenv import load_dotenv  # type: ignore
-        # Load .env from repo root if present
-        root = Path(__file__).parent
-        env_path = root / ".env"
-        load_dotenv(dotenv_path=env_path if env_path.exists() else None)
-    except Exception:
-        # dotenv is optional in deployed environments
-        pass
+OBS_LIST_PATH = Path(__file__).resolve().parent / "data" / "observation_list.json"
 
-def _fallback_symbols():
-    # fallback to observation_list.json if portfolio fails or empty
-    obs = Path(__file__).parent / "data" / "observation_list.json"
-    if obs.exists():
-        try:
-            data = json.loads(obs.read_text())
-            return data.get("symbols") or []
-        except Exception:
-            return []
-    return []
+def load_observation_symbols():
+    if OBS_LIST_PATH.exists():
+        with open(OBS_LIST_PATH, "r") as f:
+            data = json.load(f)
+            syms = data.get("symbols") or []
+            return [s.upper() for s in syms if isinstance(s, str) and s.strip()]
+    return ["BTC", "ETH"]
 
-if __name__ == "__main__":
-    _load_env()
-
-    symbols = []
+def portfolio_symbols_or_fallback():
     try:
         portfolio = get_coinbase_portfolio()
-        # Portfolio API returns a list of accounts; filter those with balance > 0
-        symbols = [
-            p["currency"]
-            for p in portfolio
-            if p.get("currency") and float(p.get("balance", 0) or 0) > 0
-        ]
-    except Exception as e:
-        print(f"Warning: could not fetch Coinbase portfolio: {e}")
+        symbols = []
+        for p in portfolio:
+            try:
+                cur = p.get("currency")
+                bal = float(p.get("balance", 0))
+                if cur and bal > 0:
+                    symbols.append(cur.upper())
+            except Exception:
+                continue
+        # Keep majors if present; else fallback to observation list
+        symbols = [s for s in symbols if s in {"BTC", "ETH"}] or load_observation_symbols()
+        return symbols
+    except Exception:
+        return load_observation_symbols()
 
-    if not symbols:
-        symbols = _fallback_symbols()
+def main():
+    # Load environment from .env (if present)
+    load_dotenv(override=False)
 
-    if not symbols:
-        raise SystemExit("No symbols available from portfolio or observation_list.json")
-
+    symbols = portfolio_symbols_or_fallback()
     context = build_context(symbols)
-    decision = query_llm(context)
-    print(json.dumps(decision, indent=2))
+    print("Context:", context)
+
+    # Optional: query LLM (safe to skip if endpoint unset)
+    try:
+        from llm.decision_engine import query_llm
+        decision = query_llm(context)
+        print("LLM Decision:")
+        print(json.dumps(decision, indent=2))
+    except Exception as e:
+        print(f"LLM call failed: {e}")
+
+if __name__ == "__main__":
+    main()

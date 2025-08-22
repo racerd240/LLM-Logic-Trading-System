@@ -1,59 +1,57 @@
-import base64
-import hashlib
-import hmac
 import json
 import os
-import time
-import requests
+from common.http import SESSION as http
+from execution.coinbase_auth import sign_cb_request, now_ts_str
 
-BASE_URL = "https://api.exchange.coinbase.com"
-USER_AGENT = "LLM-Logic-Trading-System/1.0"
+HTTP_TIMEOUT = 15
 
-def _cb_sign(secret_b64: str, timestamp: str, method: str, request_path: str, body: str) -> str:
-    key = base64.b64decode(secret_b64)
-    prehash = f"{timestamp}{method}{request_path}{body}"
-    signature = hmac.new(key, prehash.encode("utf-8"), hashlib.sha256).digest()
-    return base64.b64encode(signature).decode("utf-8")
+def _base_url() -> str:
+    target = os.getenv("COINBASE_API_TARGET", "exchange").lower()
+    if target != "exchange":
+        # Only Exchange supported in this drop.
+        raise RuntimeError("Set COINBASE_API_TARGET=exchange (Advanced Trade not enabled in this build).")
+    return "https://api.exchange.coinbase.com"
 
-def _headers(method: str, request_path: str, body_json: str = "") -> dict:
-    api_key = os.getenv("COINBASE_API_KEY")
-    api_secret = os.getenv("COINBASE_API_SECRET")
-    passphrase = os.getenv("COINBASE_API_PASSPHRASE")
-    if not api_key or not api_secret or not passphrase:
-        raise ValueError("Missing Coinbase API credentials: ensure COINBASE_API_KEY, COINBASE_API_SECRET, and COINBASE_API_PASSPHRASE are set")
-    ts = str(int(time.time()))
-    sign = _cb_sign(api_secret, ts, method.upper(), request_path, body_json or "")
-    return {
-        "CB-ACCESS-KEY": api_key,
-        "CB-ACCESS-SIGN": sign,
-        "CB-ACCESS-TIMESTAMP": ts,
-        "CB-ACCESS-PASSPHRASE": passphrase,
-        "Content-Type": "application/json",
-        "User-Agent": USER_AGENT,
-    }
-
-def place_order(product_id, side, size, price=None, order_type="limit"):
+def place_order(product_id: str, side: str, size: float, price: float | None = None, order_type: str = "limit"):
     """
     Places an order on Coinbase Exchange.
-    order_type: "limit" or "market"
-    For market, omit price.
+    order_type: "limit" | "market"
+    For "market", omit price.
     """
+    api_key = os.getenv("COINBASE_API_KEY")
+    api_secret = os.getenv("COINBASE_API_SECRET")
+    api_passphrase = os.getenv("COINBASE_API_PASSPHRASE")
+    if not (api_key and api_secret and api_passphrase):
+        raise RuntimeError("Missing Coinbase API credentials in environment.")
+
+    body = {
+        "product_id": product_id,
+        "side": side.lower(),
+        "size": str(size),
+        "type": order_type.lower(),
+    }
+    if order_type.lower() == "limit":
+        if price is None:
+            raise ValueError("Limit order requires price.")
+        body["price"] = str(price)
+
     method = "POST"
     path = "/orders"
-    order = {
-        "product_id": product_id,
-        "side": side,
-        "size": str(size),
-        "type": order_type,
-    }
-    if price is not None and order_type == "limit":
-        order["price"] = str(price)
 
-    body_json = json.dumps(order, separators=(",", ":"))
-    headers = _headers(method, path, body_json)
-    r = requests.post(f"{BASE_URL}{path}", headers=headers, data=body_json, timeout=20)
+    # Serialize EXACTLY ONCE and sign the same bytes we send
+    body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+    ts = now_ts_str()
+    sig = sign_cb_request(api_secret, ts, method, path, body)
+
+    headers = {
+        "CB-ACCESS-KEY": api_key,
+        "CB-ACCESS-SIGN": sig,
+        "CB-ACCESS-TIMESTAMP": ts,
+        "CB-ACCESS-PASSPHRASE": api_passphrase,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    r = http.post(f"{_base_url()}{path}", headers=headers, data=body_str, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     return r.json()
-
-if __name__ == "__main__":
-    pass

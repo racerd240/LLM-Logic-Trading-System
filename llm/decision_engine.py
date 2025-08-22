@@ -1,10 +1,15 @@
 import os
-import requests
+from common.http import SESSION as http
+
+HTTP_TIMEOUT = 20
 
 def query_llm(context_json: str):
+    """
+    Sends context to LLM endpoint. Expects JSON response.
+    """
     endpoint = os.getenv("LLM_ENDPOINT_URL")
     if not endpoint:
-        raise ValueError("LLM_ENDPOINT_URL is not set")
-    r = requests.post(endpoint, json={"context": context_json}, timeout=30)
+        raise RuntimeError("LLM_ENDPOINT_URL not set in environment.")
+    r = http.post(endpoint, json={"context": context_json}, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     return r.json()

@@ -1,51 +1,49 @@
-import base64
-import hashlib
-import hmac
-import json
 import os
-import time
-import requests
+from common.http import SESSION as http
+from execution.coinbase_auth import sign_cb_request, now_ts_str
 
-BASE_URL = "https://api.exchange.coinbase.com"
-USER_AGENT = "LLM-Logic-Trading-System/1.0"
+HTTP_TIMEOUT = 10
 
-def _cb_sign(secret_b64: str, timestamp: str, method: str, request_path: str, body: str) -> str:
-    key = base64.b64decode(secret_b64)
-    prehash = f"{timestamp}{method}{request_path}{body}"
-    signature = hmac.new(key, prehash.encode("utf-8"), hashlib.sha256).digest()
-    return base64.b64encode(signature).decode("utf-8")
-
-def _headers(method: str, request_path: str, body_json: str = "") -> dict:
-    api_key = os.getenv("COINBASE_API_KEY")
-    api_secret = os.getenv("COINBASE_API_SECRET")
-    passphrase = os.getenv("COINBASE_API_PASSPHRASE")
-    if not api_key or not api_secret or not passphrase:
-        raise ValueError("Missing Coinbase API credentials: ensure COINBASE_API_KEY, COINBASE_API_SECRET, and COINBASE_API_PASSPHRASE are set")
-    ts = str(int(time.time()))
-    sign = _cb_sign(api_secret, ts, method.upper(), request_path, body_json or "")
-    return {
-        "CB-ACCESS-KEY": api_key,
-        "CB-ACCESS-SIGN": sign,
-        "CB-ACCESS-TIMESTAMP": ts,
-        "CB-ACCESS-PASSPHRASE": passphrase,
-        "Content-Type": "application/json",
-        "User-Agent": USER_AGENT,
-    }
+def _base_url() -> str:
+    target = os.getenv("COINBASE_API_TARGET", "exchange").lower()
+    if target != "exchange":
+        # Only Exchange supported in this drop.
+        raise RuntimeError("Set COINBASE_API_TARGET=exchange (Advanced Trade not enabled in this build).")
+    return "https://api.exchange.coinbase.com"
 
 def get_coinbase_portfolio():
+    """
+    Returns list of accounts (balances) from Coinbase Exchange.
+    Requires API key/secret/passphrase with 'view' permission.
+    """
+    api_key = os.getenv("COINBASE_API_KEY")
+    api_secret = os.getenv("COINBASE_API_SECRET")  # base64
+    api_passphrase = os.getenv("COINBASE_API_PASSPHRASE")
+    if not (api_key and api_secret and api_passphrase):
+        raise RuntimeError("Missing Coinbase API credentials in environment.")
+
     method = "GET"
-    path = "/accounts"
-    url = f"{BASE_URL}{path}"
-    headers = _headers(method, path, "")
-    r = requests.get(url, headers=headers, timeout=15)
+    request_path = "/accounts"
+    ts = now_ts_str()
+    sig = sign_cb_request(api_secret, ts, method, request_path, None)
+
+    headers = {
+        "CB-ACCESS-KEY": api_key,
+        "CB-ACCESS-SIGN": sig,
+        "CB-ACCESS-TIMESTAMP": ts,
+        "CB-ACCESS-PASSPHRASE": api_passphrase,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    r = http.get(f"{_base_url()}{request_path}", headers=headers, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     return r.json()
 
 if __name__ == "__main__":
-    # Local dev convenience: load .env if present
+    import json
     try:
-        from dotenv import load_dotenv  # type: ignore
-        load_dotenv()
-    except Exception:
-        pass
-    print(json.dumps(get_coinbase_portfolio(), indent=2))
+        portfolio = get_coinbase_portfolio()
+        print(json.dumps(portfolio, indent=2))
+    except Exception as e:
+        print(f"Portfolio fetch failed: {e}")
